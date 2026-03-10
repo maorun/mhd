@@ -30,6 +30,38 @@ function getStatusLabel(daysLeft: number): string {
   return `Noch ${daysLeft} Tage`;
 }
 
+function showDeleteConfirmModal(productId: string, container: HTMLElement): void {
+  const modal = document.getElementById('delete-confirm-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const confirmBtn = document.getElementById('btn-delete-confirm') as HTMLButtonElement | null;
+  const cancelBtn = document.getElementById('btn-delete-cancel') as HTMLButtonElement | null;
+
+  const cleanup = (): void => {
+    modal.classList.add('hidden');
+    confirmBtn?.removeEventListener('click', onConfirm);
+    cancelBtn?.removeEventListener('click', onCancel);
+    modal.removeEventListener('click', onBackdropClick);
+  };
+
+  const onConfirm = (): void => {
+    deleteProduct(productId);
+    renderProductList(container);
+    cleanup();
+  };
+
+  const onCancel = (): void => cleanup();
+
+  const onBackdropClick = (e: MouseEvent): void => {
+    if (e.target === modal) cleanup();
+  };
+
+  confirmBtn?.addEventListener('click', onConfirm);
+  cancelBtn?.addEventListener('click', onCancel);
+  modal.addEventListener('click', onBackdropClick);
+}
+
 function renderProductList(container: HTMLElement): void {
   const products = loadProducts();
   products.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
@@ -61,8 +93,7 @@ function renderProductList(container: HTMLElement): void {
     btn.addEventListener('click', () => {
       const id = (btn as HTMLElement).dataset['id'];
       if (id) {
-        deleteProduct(id);
-        renderProductList(container);
+        showDeleteConfirmModal(id, container);
       }
     });
   });
@@ -199,6 +230,17 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
     <footer class="text-center py-3.5 px-4 text-xs text-gray-400 border-t border-gray-200 bg-white">
       <p>MHD-Tracker – Lebensmittel rechtzeitig aufbrauchen</p>
     </footer>
+
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 flex flex-col gap-4">
+        <h3 class="text-base font-semibold text-gray-800">Produkt löschen?</h3>
+        <p class="text-sm text-gray-500">Möchtest du dieses Produkt wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+        <div class="flex gap-3 mt-1">
+          <button id="btn-delete-cancel" class="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer">Abbrechen</button>
+          <button id="btn-delete-confirm" class="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors cursor-pointer">Löschen</button>
+        </div>
+      </div>
+    </div>
   `;
 
   const form = appElement.querySelector<HTMLFormElement>('#product-form')!;
