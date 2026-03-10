@@ -7,11 +7,20 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function getStatusClass(daysLeft: number): string {
-  if (daysLeft < 0) return 'expired';
-  if (daysLeft <= 3) return 'critical';
-  if (daysLeft <= 7) return 'warning';
-  return 'ok';
+// Returns complete Tailwind class strings so the scanner can detect them statically
+function getCardClasses(daysLeft: number): string {
+  const base = 'flex items-center justify-between px-4 py-3.5 rounded-lg mb-2.5 border-l-4 last:mb-0 shadow-sm';
+  if (daysLeft < 0) return `${base} border-l-red-800 bg-red-50`;
+  if (daysLeft <= 3) return `${base} border-l-orange-600 bg-orange-50`;
+  if (daysLeft <= 7) return `${base} border-l-amber-400 bg-amber-50`;
+  return `${base} border-l-green-500 bg-gray-50`;
+}
+
+function getStatusTextClass(daysLeft: number): string {
+  if (daysLeft < 0) return 'text-xs font-medium text-red-800';
+  if (daysLeft <= 3) return 'text-xs font-medium text-orange-600';
+  if (daysLeft <= 7) return 'text-xs font-medium text-amber-500';
+  return 'text-xs font-medium text-green-600';
 }
 
 function getStatusLabel(daysLeft: number): string {
@@ -26,23 +35,24 @@ function renderProductList(container: HTMLElement): void {
   products.sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
 
   if (products.length === 0) {
-    container.innerHTML = '<p class="empty-hint">Noch keine Produkte eingetragen.</p>';
+    container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Noch keine Produkte eingetragen.</p>';
     return;
   }
 
   container.innerHTML = products
     .map((p: Product) => {
       const daysLeft = getDaysUntilExpiry(p.expiryDate);
-      const statusClass = getStatusClass(daysLeft);
+      const cardClasses = getCardClasses(daysLeft);
+      const statusTextClass = getStatusTextClass(daysLeft);
       const statusLabel = getStatusLabel(daysLeft);
       return `
-      <div class="product-card ${statusClass}" data-id="${p.id}">
-        <div class="product-info">
-          <span class="product-name">${escapeHtml(p.name)}</span>
-          <span class="product-date">MHD: ${formatDate(p.expiryDate)}</span>
-          <span class="product-status">${statusLabel}</span>
+      <div class="${cardClasses}" data-id="${p.id}">
+        <div class="flex flex-col gap-0.5">
+          <span class="font-semibold text-base text-gray-800">${escapeHtml(p.name)}</span>
+          <span class="text-xs text-gray-400">MHD: ${formatDate(p.expiryDate)}</span>
+          <span class="${statusTextClass}">${statusLabel}</span>
         </div>
-        <button class="btn-delete" data-id="${p.id}" aria-label="Produkt löschen">🗑️</button>
+        <button class="bg-transparent border-0 cursor-pointer text-xl px-2 py-1 rounded-lg hover:bg-red-100 shrink-0 transition-colors btn-delete" data-id="${p.id}" aria-label="Produkt löschen">🗑️</button>
       </div>`;
     })
     .join('');
@@ -68,7 +78,6 @@ function escapeHtml(str: string): string {
 }
 
 function setupForm(form: HTMLFormElement, productList: HTMLElement): void {
-  // Set default date to today
   const dateInput = form.querySelector<HTMLInputElement>('#expiry-date');
   const today = new Date().toISOString().split('T')[0];
   if (dateInput) dateInput.min = today;
@@ -92,21 +101,25 @@ function setupForm(form: HTMLFormElement, productList: HTMLElement): void {
   });
 }
 
+const BASE_NOTIFY_BTN = 'inline-flex items-center justify-center gap-1.5 px-6 py-2 rounded-lg text-[0.95rem] font-semibold cursor-pointer transition-colors border-2 disabled:cursor-not-allowed disabled:opacity-70';
+
 async function setupNotificationButton(btn: HTMLButtonElement): Promise<void> {
   const updateBtn = (): void => {
     if (!('Notification' in window)) {
       btn.textContent = 'Benachrichtigungen nicht verfügbar';
+      btn.className = `${BASE_NOTIFY_BTN} bg-gray-100 text-gray-500 border-gray-300`;
       btn.disabled = true;
     } else if (Notification.permission === 'granted') {
       btn.textContent = '🔔 Benachrichtigungen aktiv';
-      btn.classList.add('active');
+      btn.className = `${BASE_NOTIFY_BTN} bg-green-600 text-white border-green-600`;
       btn.disabled = true;
     } else if (Notification.permission === 'denied') {
       btn.textContent = '🚫 Benachrichtigungen blockiert';
-      btn.classList.add('denied');
+      btn.className = `${BASE_NOTIFY_BTN} bg-gray-100 text-gray-500 border-gray-300`;
       btn.disabled = true;
     } else {
       btn.textContent = '🔔 Benachrichtigungen aktivieren';
+      btn.className = `${BASE_NOTIFY_BTN} bg-white text-green-800 border-green-500 hover:bg-green-600 hover:text-white hover:border-green-600`;
       btn.disabled = false;
     }
   };
@@ -124,21 +137,21 @@ async function setupNotificationButton(btn: HTMLButtonElement): Promise<void> {
 
 export async function initApp(appElement: HTMLElement): Promise<void> {
   appElement.innerHTML = `
-    <header>
-      <h1>🥛 MHD-Tracker</h1>
-      <p class="subtitle">Produkte mit Mindesthaltbarkeitsdatum verwalten</p>
+    <header class="bg-green-600 text-white px-4 pt-5 pb-4 text-center shadow-md">
+      <h1 class="text-3xl font-bold">🥛 MHD-Tracker</h1>
+      <p class="text-sm opacity-85 mt-1">Produkte mit Mindesthaltbarkeitsdatum verwalten</p>
     </header>
 
-    <main>
-      <section class="notification-section">
-        <button id="btn-notify" class="btn btn-notify">🔔 Benachrichtigungen aktivieren</button>
+    <main class="flex-1 max-w-screen-sm w-full mx-auto px-4 py-4 flex flex-col gap-5">
+      <section class="text-center">
+        <button id="btn-notify" class="${BASE_NOTIFY_BTN} bg-white text-green-800 border-green-500 hover:bg-green-600 hover:text-white hover:border-green-600">🔔 Benachrichtigungen aktivieren</button>
       </section>
 
-      <section class="form-section">
-        <h2>Produkt hinzufügen</h2>
+      <section class="bg-white rounded-lg p-5 shadow">
+        <h2 class="text-base font-semibold mb-4 text-green-800">Produkt hinzufügen</h2>
         <form id="product-form" novalidate>
-          <div class="form-group">
-            <label for="product-name">Produktname</label>
+          <div class="flex flex-col gap-1 mb-3.5">
+            <label for="product-name" class="text-sm font-medium text-gray-500">Produktname</label>
             <input
               type="text"
               id="product-name"
@@ -147,19 +160,21 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
               required
               maxlength="100"
               autocomplete="off"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
             />
           </div>
-          <div class="form-group">
-            <label for="expiry-date">Mindesthaltbarkeitsdatum</label>
+          <div class="flex flex-col gap-1 mb-3.5">
+            <label for="expiry-date" class="text-sm font-medium text-gray-500">Mindesthaltbarkeitsdatum</label>
             <input
               type="date"
               id="expiry-date"
               name="expiry-date"
               required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
             />
           </div>
-          <div class="form-group">
-            <label for="notify-days">Benachrichtigung (Tage vorher)</label>
+          <div class="flex flex-col gap-1 mb-3.5">
+            <label for="notify-days" class="text-sm font-medium text-gray-500">Benachrichtigung (Tage vorher)</label>
             <input
               type="number"
               id="notify-days"
@@ -168,19 +183,20 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
               min="1"
               max="30"
               required
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
             />
           </div>
-          <button type="submit" class="btn btn-add">➕ Hinzufügen</button>
+          <button type="submit" class="w-full bg-green-600 text-white mt-1 px-5 py-2.5 rounded-lg text-[0.95rem] font-semibold cursor-pointer hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70 transition-colors">➕ Hinzufügen</button>
         </form>
       </section>
 
-      <section class="products-section">
-        <h2>Meine Produkte</h2>
+      <section class="bg-white rounded-lg p-5 shadow">
+        <h2 class="text-base font-semibold mb-4 text-green-800">Meine Produkte</h2>
         <div id="product-list"></div>
       </section>
     </main>
 
-    <footer>
+    <footer class="text-center py-3.5 px-4 text-xs text-gray-400 border-t border-gray-200 bg-white">
       <p>MHD-Tracker – Lebensmittel rechtzeitig aufbrauchen</p>
     </footer>
   `;

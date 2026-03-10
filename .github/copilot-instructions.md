@@ -13,6 +13,7 @@ Die App ermöglicht es, Lebensmittelprodukte mit ihrem **Mindesthaltbarkeitsdatu
 |--------------------|------------------------------------------------|
 | TypeScript 5        | Typsichere Entwicklung                         |
 | Vite 7              | Build-Tool und Dev-Server                      |
+| Tailwind CSS v4     | Utility-first Styling via `@tailwindcss/vite`  |
 | vite-plugin-pwa     | PWA-Integration (Service Worker, Manifest)     |
 | Web Notifications API | Browser-Benachrichtigungen                  |
 | localStorage        | Datenpersistenz (clientseitig)                 |
@@ -116,9 +117,12 @@ interface Product {
 - Benutzereingaben werden immer mit `escapeHtml()` (in `app.ts`) bereinigt
 - Kein `innerHTML` mit rohen Benutzerdaten
 
-### CSS
-- CSS Custom Properties (`--color-*`, `--radius`, etc.) für konsistentes Design
-- Mobile-first, maximal 640px Breite für den Hauptinhalt
+### CSS / Styling
+- **Tailwind CSS v4** via `@tailwindcss/vite` Vite-Plugin – kein `tailwind.config.js` nötig
+- Einstiegspunkt: `src/style.css` mit `@import "tailwindcss";` und optionalem `@theme { … }` für Custom-Tokens
+- Alle Styles werden als Utility-Klassen direkt in den HTML-Templates in `src/app.ts` vergeben
+- Dynamisch gebaute Klassen (z.B. Statusfarben) werden als **vollständige Strings** zurückgegeben, damit Tailwind sie beim Scan erkennt
+- Mobile-first, maximal `max-w-screen-sm` (640 px) Breite für den Hauptinhalt
 
 ### Commits
 - Konventionelle Commits: `feat:`, `fix:`, `style:`, `refactor:`, `docs:`
