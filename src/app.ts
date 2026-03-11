@@ -1,6 +1,7 @@
 import type { Product } from './types.ts';
 import { loadProducts, addProduct, deleteProduct } from './storage.ts';
 import { requestNotificationPermission, checkAndNotify, getDaysUntilExpiry } from './notifications.ts';
+import { openBarcodeScanner } from './barcode.ts';
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
@@ -183,16 +184,19 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
         <form id="product-form" novalidate>
           <div class="flex flex-col gap-1 mb-3.5">
             <label for="product-name" class="text-sm font-medium text-gray-500">Produktname</label>
-            <input
-              type="text"
-              id="product-name"
-              name="product-name"
-              placeholder="z.B. Milch, Joghurt, Brot…"
-              required
-              maxlength="100"
-              autocomplete="off"
-              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
-            />
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="product-name"
+                name="product-name"
+                placeholder="z.B. Milch, Joghurt, Brot…"
+                required
+                maxlength="100"
+                autocomplete="off"
+                class="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
+              />
+              <button type="button" id="btn-scan-barcode" aria-label="Barcode scannen" class="px-3 py-2.5 bg-green-50 border border-green-400 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors cursor-pointer shrink-0 flex items-center gap-1" title="Barcode scannen"><span aria-hidden="true">📷</span> Scannen</button>
+            </div>
           </div>
           <div class="flex flex-col gap-1 mb-3.5">
             <label for="expiry-date" class="text-sm font-medium text-gray-500">Mindesthaltbarkeitsdatum</label>
@@ -246,6 +250,20 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
   const form = appElement.querySelector<HTMLFormElement>('#product-form')!;
   const productList = appElement.querySelector<HTMLElement>('#product-list')!;
   const notifyBtn = appElement.querySelector<HTMLButtonElement>('#btn-notify')!;
+  const scanBtn = appElement.querySelector<HTMLButtonElement>('#btn-scan-barcode')!;
+  const nameInput = appElement.querySelector<HTMLInputElement>('#product-name')!;
+
+  scanBtn.addEventListener('click', () => {
+    openBarcodeScanner(
+      ({ barcode, productName }) => {
+        nameInput.value = productName ?? barcode;
+        nameInput.focus();
+      },
+      () => {
+        // scanner closed without result
+      },
+    );
+  });
 
   setupForm(form, productList);
   await setupNotificationButton(notifyBtn);
