@@ -1,5 +1,5 @@
 import type { Product } from './types.ts';
-import { loadProducts, addProduct, deleteProduct } from './storage.ts';
+import { loadProducts, addProduct, deleteProduct, updateProduct } from './storage.ts';
 import { requestNotificationPermission, checkAndNotify, getDaysUntilExpiry } from './notifications.ts';
 import { openBarcodeScanner } from './barcode.ts';
 
@@ -29,6 +29,64 @@ function getStatusLabel(daysLeft: number): string {
   if (daysLeft === 0) return 'Läuft heute ab!';
   if (daysLeft === 1) return 'Läuft morgen ab!';
   return `Noch ${daysLeft} Tage`;
+}
+
+function showEditModal(product: Product, container: HTMLElement): void {
+  const modal = document.getElementById('edit-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  const nameInput = document.getElementById('edit-product-name') as HTMLInputElement | null;
+  const dateInput = document.getElementById('edit-expiry-date') as HTMLInputElement | null;
+  const notifyInput = document.getElementById('edit-notify-days') as HTMLInputElement | null;
+  const saveBtn = document.getElementById('btn-edit-save') as HTMLButtonElement | null;
+  const cancelBtn = document.getElementById('btn-edit-cancel') as HTMLButtonElement | null;
+
+  const errorMsg = document.getElementById('edit-error-msg');
+
+  if (nameInput) nameInput.value = product.name;
+  if (dateInput) dateInput.value = product.expiryDate;
+  if (notifyInput) notifyInput.value = String(product.notifyDaysBefore);
+  if (errorMsg) errorMsg.textContent = '';
+
+  const cleanup = (): void => {
+    modal.classList.add('hidden');
+    if (errorMsg) errorMsg.textContent = '';
+    saveBtn?.removeEventListener('click', onSave);
+    cancelBtn?.removeEventListener('click', onCancel);
+    modal.removeEventListener('click', onBackdropClick);
+  };
+
+  const onSave = (): void => {
+    const name = nameInput?.value.trim() ?? '';
+    const expiryDate = dateInput?.value ?? '';
+    const notifyDaysBefore = parseInt(notifyInput?.value ?? '3', 10);
+
+    if (!name || name.length > 100 || !expiryDate || isNaN(notifyDaysBefore) || notifyDaysBefore < 1 || notifyDaysBefore > 30) {
+      if (errorMsg) {
+        if (!name) errorMsg.textContent = 'Bitte gib einen Produktnamen ein.';
+        else if (name.length > 100) errorMsg.textContent = 'Der Produktname darf maximal 100 Zeichen lang sein.';
+        else if (!expiryDate) errorMsg.textContent = 'Bitte wähle ein Mindesthaltbarkeitsdatum.';
+        else errorMsg.textContent = 'Die Anzahl der Tage muss zwischen 1 und 30 liegen.';
+      }
+      return;
+    }
+
+    updateProduct(product.id, { name, expiryDate, notifyDaysBefore });
+    renderProductList(container);
+    checkAndNotify();
+    cleanup();
+  };
+
+  const onCancel = (): void => cleanup();
+
+  const onBackdropClick = (e: MouseEvent): void => {
+    if (e.target === modal) cleanup();
+  };
+
+  saveBtn?.addEventListener('click', onSave);
+  cancelBtn?.addEventListener('click', onCancel);
+  modal.addEventListener('click', onBackdropClick);
 }
 
 function showDeleteConfirmModal(productId: string, container: HTMLElement): void {
@@ -85,10 +143,23 @@ function renderProductList(container: HTMLElement): void {
           <span class="text-xs text-gray-400">MHD: ${formatDate(p.expiryDate)}</span>
           <span class="${statusTextClass}">${statusLabel}</span>
         </div>
-        <button class="bg-transparent border-0 cursor-pointer text-xl px-2 py-1 rounded-lg hover:bg-red-100 shrink-0 transition-colors btn-delete" data-id="${p.id}" aria-label="Produkt löschen">🗑️</button>
+        <div class="flex gap-1 shrink-0">
+          <button class="bg-transparent border-0 cursor-pointer text-xl px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors btn-edit" data-id="${p.id}" aria-label="Produkt bearbeiten">✏️</button>
+          <button class="bg-transparent border-0 cursor-pointer text-xl px-2 py-1 rounded-lg hover:bg-red-100 transition-colors btn-delete" data-id="${p.id}" aria-label="Produkt löschen">🗑️</button>
+        </div>
       </div>`;
     })
     .join('');
+
+  container.querySelectorAll('.btn-edit').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = (btn as HTMLElement).dataset['id'];
+      const product = loadProducts().find((p) => p.id === id);
+      if (id && product) {
+        showEditModal(product, container);
+      }
+    });
+  });
 
   container.querySelectorAll('.btn-delete').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -243,6 +314,29 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
           <button id="btn-delete-cancel" class="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer">Abbrechen</button>
           <button id="btn-delete-confirm" class="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors cursor-pointer">Löschen</button>
         </div>
+      </div>
+    </div>
+
+    <div id="edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-6 flex flex-col gap-4">
+        <h3 class="text-base font-semibold text-gray-800">Produkt bearbeiten</h3>
+        <div class="flex flex-col gap-1">
+          <label for="edit-product-name" class="text-sm font-medium text-gray-500">Produktname</label>
+          <input type="text" id="edit-product-name" maxlength="100" autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="edit-expiry-date" class="text-sm font-medium text-gray-500">Mindesthaltbarkeitsdatum</label>
+          <input type="date" id="edit-expiry-date" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="edit-notify-days" class="text-sm font-medium text-gray-500">Benachrichtigung (Tage vorher)</label>
+          <input type="number" id="edit-notify-days" min="1" max="30" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors" />
+        </div>
+        <div class="flex gap-3 mt-1">
+          <button id="btn-edit-cancel" class="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer">Abbrechen</button>
+          <button id="btn-edit-save" class="flex-1 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors cursor-pointer">Speichern</button>
+        </div>
+        <p id="edit-error-msg" class="text-xs text-red-600 -mt-2 min-h-[1rem]"></p>
       </div>
     </div>
   `;

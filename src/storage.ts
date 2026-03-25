@@ -33,6 +33,19 @@ export function deleteProduct(id: string): void {
   saveProducts(products);
 }
 
+export function updateProduct(id: string, updates: Partial<Omit<Product, 'id'>>): void {
+  const products = loadProducts().map((p) => {
+    if (p.id !== id) return p;
+    const updated = { ...p, ...updates };
+    // Reset notified flag when expiry date or notification threshold changes
+    if (updates.expiryDate !== undefined || updates.notifyDaysBefore !== undefined) {
+      updated.notified = false;
+    }
+    return updated;
+  });
+  saveProducts(products);
+}
+
 export function markNotified(id: string): void {
   const products = loadProducts().map((p) =>
     p.id === id ? { ...p, notified: true } : p,
