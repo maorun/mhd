@@ -248,6 +248,7 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
     <main class="flex-1 max-w-screen-sm w-full mx-auto px-4 py-4 flex flex-col gap-5">
       <section class="text-center">
         <button id="btn-notify" class="${BASE_NOTIFY_BTN} bg-white text-green-800 border-green-500 hover:bg-green-600 hover:text-white hover:border-green-600">🔔 Benachrichtigungen aktivieren</button>
+        <p class="text-xs text-gray-400 mt-2">ℹ️ Benachrichtigungen werden nur gesendet, wenn die App im Browser geöffnet ist. Auf iOS Safari werden Browser-Benachrichtigungen möglicherweise nicht vollständig unterstützt.</p>
       </section>
 
       <section class="bg-white rounded-lg p-5 shadow">

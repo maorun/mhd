@@ -13,7 +13,7 @@ export function getDaysUntilExpiry(expiryDate: string): number {
   const expiry = new Date(expiryDate + 'T00:00:00');
   expiry.setHours(0, 0, 0, 0);
   const diffMs = expiry.getTime() - today.getTime();
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
 export function checkAndNotify(): void {
