@@ -31,6 +31,20 @@ function getStatusLabel(daysLeft: number): string {
   return `Noch ${daysLeft} Tage`;
 }
 
+function showToast(message: string, type: 'success' | 'error' = 'success'): void {
+  const toast = document.createElement('div');
+  const bgClass = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+  toast.className = `fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-5 py-2.5 rounded-lg text-white text-sm font-semibold shadow-lg opacity-100 transition-opacity duration-300 ${bgClass}`;
+  toast.setAttribute('role', 'status');
+  toast.setAttribute('aria-live', 'polite');
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 function showEditModal(product: Product, container: HTMLElement): void {
   const modal = document.getElementById('edit-modal');
   if (!modal) return;
@@ -72,10 +86,15 @@ function showEditModal(product: Product, container: HTMLElement): void {
       return;
     }
 
-    updateProduct(product.id, { name, expiryDate, notifyDaysBefore });
-    renderProductList(container);
-    checkAndNotify();
-    cleanup();
+    try {
+      updateProduct(product.id, { name, expiryDate, notifyDaysBefore });
+      renderProductList(container);
+      checkAndNotify();
+      cleanup();
+      showToast('✅ Produkt gespeichert');
+    } catch {
+      if (errorMsg) errorMsg.textContent = 'Fehler beim Speichern. Bitte versuche es erneut.';
+    }
   };
 
   const onCancel = (): void => cleanup();
