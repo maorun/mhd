@@ -3,6 +3,22 @@
   "extends": [
     "config:recommended"
   ],
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "automergeStrategy": "squash",
+  "packageRules": [
+    {
+      "description": "Auto-merge only non-major updates after required checks pass",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Keep major updates manual",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ],
   "dependencyDashboard": false,
   "reviewers": ["maorun"]
 }
