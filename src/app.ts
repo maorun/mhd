@@ -275,7 +275,7 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
         <form id="product-form" novalidate>
           <div class="flex flex-col gap-1 mb-3.5">
             <label for="product-name" class="text-sm font-medium text-gray-500">Produktname</label>
-            <div class="flex gap-2">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="text"
                 id="product-name"
@@ -284,9 +284,9 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
                 required
                 maxlength="100"
                 autocomplete="off"
-                class="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
+                class="w-full sm:flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-green-500 transition-colors"
               />
-              <button type="button" id="btn-scan-barcode" aria-label="Barcode scannen" class="px-3 py-2.5 bg-green-50 border border-green-400 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors cursor-pointer shrink-0 flex items-center gap-1" title="Barcode scannen"><span aria-hidden="true">📷</span> Scannen</button>
+              <button type="button" id="btn-scan-barcode" aria-label="Barcode scannen" class="w-full sm:w-auto px-3 py-2.5 bg-green-50 border border-green-400 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors cursor-pointer sm:shrink-0 flex items-center justify-center gap-1" title="Barcode scannen"><span aria-hidden="true">📷</span> Scannen</button>
             </div>
           </div>
           <div class="flex flex-col gap-1 mb-3.5">
