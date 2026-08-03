@@ -1,5 +1,5 @@
 import type { Product } from './types.ts';
-import { loadProducts, addProduct, deleteProduct, updateProduct } from './storage.ts';
+import { loadProducts, addProduct, deleteProduct, updateProduct, markNotified, syncSwNotifiedState, saveProducts } from './storage.ts';
 import { requestNotificationPermission, checkAndNotify, getDaysUntilExpiry } from './notifications.ts';
 import { openBarcodeScanner } from './barcode.ts';
 
@@ -225,6 +225,21 @@ function setupForm(form: HTMLFormElement, productList: HTMLElement): void {
 
 const BASE_NOTIFY_BTN = 'inline-flex items-center justify-center gap-1.5 px-6 py-2 rounded-lg text-[0.95rem] font-semibold cursor-pointer transition-colors border-2 disabled:cursor-not-allowed disabled:opacity-70';
 
+/** Registers the Periodic Background Sync task that lets the SW check MHDs even when the app is closed. */
+async function registerPeriodicSync(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if (!('periodicSync' in registration)) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (registration as any).periodicSync.register('check-mhd', {
+      minInterval: 24 * 60 * 60 * 1000, // at most once per day (browser may enforce longer)
+    });
+  } catch {
+    // Periodic Background Sync not granted or not supported – silent fallback
+  }
+}
+
 async function setupNotificationButton(btn: HTMLButtonElement): Promise<void> {
   const updateBtn = (): void => {
     if (!('Notification' in window)) {
@@ -252,6 +267,7 @@ async function setupNotificationButton(btn: HTMLButtonElement): Promise<void> {
     const permission = await requestNotificationPermission();
     if (permission === 'granted') {
       checkAndNotify();
+      await registerPeriodicSync();
     }
     updateBtn();
   });
@@ -267,7 +283,7 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
     <main class="flex-1 max-w-screen-sm w-full mx-auto px-4 py-4 flex flex-col gap-5">
       <section class="text-center">
         <button id="btn-notify" class="${BASE_NOTIFY_BTN} bg-white text-green-800 border-green-500 hover:bg-green-600 hover:text-white hover:border-green-600">🔔 Benachrichtigungen aktivieren</button>
-        <p class="text-xs text-gray-400 mt-2">ℹ️ Benachrichtigungen werden nur gesendet, wenn die App im Browser geöffnet ist. Auf iOS Safari werden Browser-Benachrichtigungen möglicherweise nicht vollständig unterstützt.</p>
+        <p class="text-xs text-gray-400 mt-2">ℹ️ Auf unterstützten Geräten (Android/Chrome) werden Benachrichtigungen auch im Hintergrund gesendet. Auf iOS Safari sind Hintergrund-Benachrichtigungen eingeschränkt.</p>
       </section>
 
       <section class="bg-white rounded-lg p-5 shadow">
@@ -381,10 +397,33 @@ export async function initApp(appElement: HTMLElement): Promise<void> {
 
   setupForm(form, productList);
   await setupNotificationButton(notifyBtn);
+
+  // Merge any notifications fired by the SW while the app was closed, then
+  // ensure the SW always has a fresh copy of the product list in Cache Storage.
+  await syncSwNotifiedState();
+  saveProducts(loadProducts()); // writes current localStorage state to Cache Storage
+
   renderProductList(productList);
 
   // Check for expiring products on startup
   checkAndNotify();
+
+  // If periodic background sync is already registered, also try to register it
+  // now in case notification permission was granted in a previous session.
+  if (Notification.permission === 'granted') {
+    await registerPeriodicSync();
+  }
+
+  // Listen for the SW telling us it sent notifications while we were closed
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+      const data = event.data as { type?: string; ids?: string[] };
+      if (data?.type === 'SW_NOTIFIED' && Array.isArray(data.ids)) {
+        data.ids.forEach((id) => markNotified(id));
+        renderProductList(productList);
+      }
+    });
+  }
 
   // Re-check every hour
   setInterval(checkAndNotify, 60 * 60 * 1000);
